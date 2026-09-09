@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { forwardRef, useImperativeHandle, useState } from 'react'
 import MissingChart from './MissingChart.jsx'
 import NumericTable from './NumericTable.jsx'
 import HistogramPanel from './HistogramPanel.jsx'
@@ -25,34 +25,50 @@ function formatExpiry(value) {
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString()
 }
 
-export default function EDASection({ datasetId, datasetName, expiresAt, onCleared }) {
+function versionLabel(versionId) {
+  return !versionId || versionId === 'original' ? '原始数据 (Original)' : `版本 ${shortId(versionId)}`
+}
+
+const EDASection = forwardRef(function EDASection(
+  { datasetId, datasetName, expiresAt, onCleared, initialVersionId = 'original' },
+  ref,
+) {
   const [loading, setLoading] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [error, setError] = useState(null)
   const [eda, setEda] = useState(null)
+  const [runVersionId, setRunVersionId] = useState(initialVersionId)
 
-  const runEda = async () => {
+  const analyze = async (versionId) => {
+    const target = versionId || 'original'
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/datasets/${datasetId}/eda`)
+      const query = target && target !== 'original' ? `?version_id=${encodeURIComponent(target)}` : ''
+      const res = await fetch(`/api/datasets/${datasetId}/eda${query}`)
       const payload = await res.json().catch(() => null)
       if (!res.ok) {
         const message =
           payload?.error?.message ||
-          (res.status === 404 ? '数据集会话不存在或已过期，请重新上传' : `EDA 请求失败（HTTP ${res.status}）`)
+          (res.status === 404
+            ? '数据集或数据版本不存在/已过期，请重新上传'
+            : `EDA 请求失败（HTTP ${res.status}）`)
         throw new Error(message)
       }
       if (!payload || payload.success !== true) {
         throw new Error(payload?.error?.message || '服务器返回了无法识别的 EDA 数据')
       }
       setEda(payload)
+      setRunVersionId(target)
     } catch (err) {
       setError(err.message || 'EDA 计算失败，请稍后重试')
     } finally {
       setLoading(false)
     }
   }
+
+  // 对外暴露：供 Data Processing / 版本历史“重新 EDA”调用
+  useImperativeHandle(ref, () => ({ analyze }), [datasetId])
 
   const clearDataset = async () => {
     if (clearing || !window.confirm('确认清除当前数据集会话？服务端的临时文件将被删除。')) return
@@ -66,6 +82,7 @@ export default function EDASection({ datasetId, datasetName, expiresAt, onCleare
   }
 
   const summary = eda?.summary || null
+  const shownLabel = versionLabel(runVersionId)
 
   return (
     <section className="panel eda-section">
@@ -75,6 +92,11 @@ export default function EDASection({ datasetId, datasetName, expiresAt, onCleare
           <p className="eda-meta">
             数据集 <code>{datasetName || datasetId}</code> · 会话 ID{' '}
             <code title={datasetId}>{shortId(datasetId)}</code>
+            {runVersionId && (
+              <>
+                {' '}· 当前版本 <code className="chip">{shownLabel}</code>
+              </>
+            )}
             {expiresAt && (
               <>
                 {' '}· 到期时间 <code>{formatExpiry(expiresAt)}</code>
@@ -83,7 +105,7 @@ export default function EDASection({ datasetId, datasetName, expiresAt, onCleare
           </p>
         </div>
         <div className="eda-actions">
-          <button type="button" className="btn-primary" disabled={loading || clearing} onClick={runEda}>
+          <button type="button" className="btn-primary" disabled={loading || clearing} onClick={() => analyze(runVersionId)}>
             {loading ? (
               <>
                 <span className="spinner" aria-hidden="true" /> 计算中…
@@ -106,8 +128,9 @@ export default function EDASection({ datasetId, datasetName, expiresAt, onCleare
       </div>
 
       <p className="eda-desc">
-        对当前数据集执行只读统计分析与规则型洞察（描述统计 / 直方图 / 分类 Top-N / 缺失 / IQR 异常值 / Pearson
-        相关），结果全部基于真实统计计算，不修改任何原始数据。
+        对当前数据版本执行只读统计分析与规则型洞察（描述统计 / 直方图 / 分类 Top-N / 缺失 / IQR
+        异常值 / Pearson 相关），结果全部基于真实统计计算，不修改任何原始数据。v0.4 起可对比
+        Original 与各清洗版本的 EDA。
       </p>
 
       {!eda && !error && !loading && (
@@ -196,4 +219,6 @@ export default function EDASection({ datasetId, datasetName, expiresAt, onCleare
       )}
     </section>
   )
-}
+})
+
+export default EDASection

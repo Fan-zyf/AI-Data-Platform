@@ -29,7 +29,7 @@ from app.models.eda import (
     TopValue,
 )
 from app.services import data_service as ds
-from app.services import dataset_manager
+from app.services import version_manager as vm
 
 logger = logging.getLogger(__name__)
 
@@ -506,16 +506,19 @@ def compute_eda(frame: pd.DataFrame, dataset: DatasetInfo, dataset_id: str) -> E
     )
 
 
-def run_eda(dataset_id: str) -> EDAResponse:
-    """按 dataset_id 加载会话数据并执行自动 EDA。"""
-    session = dataset_manager.load_session(dataset_id)
-    frame = dataset_manager.load_dataframe(dataset_id)
+def run_eda(dataset_id: str, version_id: str | None = None) -> EDAResponse:
+    """按 dataset_id（可选 version_id，缺省为 original）加载数据并执行自动 EDA。
 
+    v0.4 起数据统一经由 version_manager 加载：
+    - version_id 为空 / 'original' → 读取原始 source 文件（与 v0.3 行为一致）；
+    - version_id 为 UUID → 读取对应派生版本 versions/<uuid>/data.csv。
+    """
+    frame, info = vm.load_dataset_version(dataset_id, version_id)
     dataset = DatasetInfo(
-        file_name=session.original_filename,
-        file_type=session.file_type,
-        file_size=session.file_size,
-        rows=len(frame),
-        columns=len(frame.columns),
+        file_name=info["file_name"],
+        file_type=info["file_type"],
+        file_size=info["file_size"],
+        rows=info["rows"],
+        columns=info["columns"],
     )
     return compute_eda(frame, dataset, dataset_id)

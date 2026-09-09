@@ -10,12 +10,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.data import router as data_router
 from app.api.datasets import router as datasets_router
 from app.api.health import router as health_router
+from app.api.processing import router as processing_router
 from app.core.config import settings
 
 app = FastAPI(
     title=settings.app_name,
     description="智能数据分析与预测平台后端服务（AI Data Intelligence Platform）",
-    version="0.3.0",
+    version="0.4.0",
 )
 
 # CORS：允许前端开发服务器跨域访问
@@ -31,15 +32,19 @@ app.add_middleware(
 app.include_router(health_router, prefix="/api")
 app.include_router(data_router, prefix="/api")
 app.include_router(datasets_router, prefix="/api")
+app.include_router(processing_router, prefix="/api")
 
 
 @app.get("/", summary="服务根路径")
 def root():
     return {
         "app": settings.app_name,
-        "version": "0.3.0",
+        "version": "0.4.0",
         "health": "/api/health",
         "upload": "/api/data/upload",
-        "eda": "/api/datasets/{dataset_id}/eda",
+        "eda": "/api/datasets/{dataset_id}/eda?version_id=<optional>",
+        "preview": "/api/datasets/{dataset_id}/processing/preview",
+        "apply": "/api/datasets/{dataset_id}/processing/apply",
+        "versions": "/api/datasets/{dataset_id}/versions",
         "docs": "/docs",
     }

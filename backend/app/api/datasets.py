@@ -2,7 +2,7 @@
 
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
 from app.models.data import DatasetDeleteResponse
@@ -10,6 +10,7 @@ from app.models.eda import EDAResponse
 from app.services import eda_service
 from app.services.data_service import DataServiceError
 from app.services.dataset_manager import DatasetSessionError, delete_session
+from app.services.version_manager import ORIGINAL_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -27,13 +28,23 @@ def _error_response(status_code: int, code: str, message: str) -> JSONResponse:
 @router.get(
     "/datasets/{dataset_id}/eda",
     response_model=EDAResponse,
-    summary="数据集自动 EDA",
-    description="基于 dataset_id 加载临时会话数据，执行自动 EDA 并返回结构化统计 JSON。",
+    summary="数据集自动 EDA（支持指定版本）",
+    description=(
+        "基于 dataset_id 加载临时会话数据，执行自动 EDA 并返回结构化统计 JSON。"
+        "可通过 version_id 指定版本（缺省为 original），例如 "
+        "GET /api/datasets/{dataset_id}/eda?version_id=<uuid>，用于对比清洗前后的 EDA。"
+    ),
 )
-def get_dataset_eda(dataset_id: str):
-    """GET /api/datasets/{dataset_id}/eda"""
+def get_dataset_eda(
+    dataset_id: str,
+    version_id: str | None = Query(
+        None,
+        description=f"版本 ID；不传或传 {ORIGINAL_VERSION} 时对原始版本执行 EDA。",
+    ),
+):
+    """GET /api/datasets/{dataset_id}/eda?version_id=<optional>"""
     try:
-        return eda_service.run_eda(dataset_id)
+        return eda_service.run_eda(dataset_id, version_id)
     except (DatasetSessionError, DataServiceError) as exc:
         logger.warning("EDA failed for %s: [%s] %s", dataset_id, exc.code, exc.message)
         return _error_response(exc.status_code, exc.code, exc.message)

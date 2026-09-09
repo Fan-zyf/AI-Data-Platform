@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import EDASection from '../eda/EDASection.jsx'
+import DataProcessingPanel from '../processing/DataProcessingPanel.jsx'
 
 const ACCEPT = '.csv,.xlsx,.xls'
 const ALLOWED_EXT = ['csv', 'xlsx', 'xls']
@@ -244,6 +245,10 @@ function PreviewTable({ result }) {
 
 function ResultView({ result, onCleared }) {
   const { dataset, quality } = result
+  const edaRef = useRef(null)
+  const runEdaOnVersion = (versionId) => {
+    if (edaRef.current?.analyze) edaRef.current.analyze(versionId)
+  }
   return (
     <div className="result-view">
       <div className="result-header">
@@ -279,12 +284,17 @@ function ResultView({ result, onCleared }) {
       <PreviewTable result={result} />
 
       {result.dataset_id && (
-        <EDASection
-          datasetId={result.dataset_id}
-          datasetName={dataset.file_name}
-          expiresAt={result.expires_at}
-          onCleared={onCleared}
-        />
+        <>
+          <EDASection
+            ref={edaRef}
+            datasetId={result.dataset_id}
+            datasetName={dataset.file_name}
+            expiresAt={result.expires_at}
+            onCleared={onCleared}
+            initialVersionId="original"
+          />
+          <DataProcessingPanel datasetId={result.dataset_id} onRunEda={runEdaOnVersion} />
+        </>
       )}
     </div>
   )

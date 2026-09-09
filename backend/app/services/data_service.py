@@ -434,3 +434,25 @@ def read_dataframe(file_type: str, content: bytes) -> pd.DataFrame:
 def analyze_columns(df: pd.DataFrame) -> tuple[list[ColumnProfile], list[pd.Series]]:
     """返回 (列画像列表, 各列缺失掩码列表)，供上传画像与 EDA 复用。"""
     return _build_column_profiles(df)
+
+
+def column_missing_mask(series: pd.Series) -> pd.Series:
+    """单列的缺失掩码（含空字符串），供清洗/特征工程模块复用。"""
+    return _column_missing_mask(series)
+
+
+def infer_column_type(series: pd.Series) -> str:
+    """依据 dtype 与内容推断单列业务类型，供清洗步骤做策略兼容性校验。"""
+    mask = _column_missing_mask(series)
+    return _infer_column_type(series, mask)
+
+
+def build_preview_rows(df: pd.DataFrame, limit: int | None = None) -> list[dict[str, Any]]:
+    """把 DataFrame 前若干行转换为 JSON 安全的记录列表。"""
+    return _build_preview(df, limit if limit is not None else settings.data_preview_rows)
+
+
+def quality_overview(df: pd.DataFrame) -> tuple[QualityOverview, list[str]]:
+    """计算整份 DataFrame 的质量概览与 warnings（缺行/重复/空列/常量列）。"""
+    profiles, masks = _build_column_profiles(df)
+    return _build_quality(df, profiles, masks)
