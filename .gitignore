@@ -1,0 +1,36 @@
+# ===== 依赖 =====
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# ===== 构建产物 =====
+dist/
+build/
+*.log
+*.tsbuildinfo
+
+# ===== 环境变量与配置 =====
+.env
+.env.local
+.env.*.local
+
+# ===== IDE / 系统 =====
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ===== 数据文件 =====
+# 用户上传/生成的业务数据默认不入库，仅保留下方示例文件
+*.xlsx
+data/*
+!data/
+!data/sample/
+data/sample/*
+!data/sample/demo.csv

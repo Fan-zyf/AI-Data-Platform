@@ -1,0 +1,22 @@
+# ===== AI Data Platform 后端依赖 =====
+# 安装：pip install -r requirements.txt
+
+# --- Web 框架 ---
+fastapi
+uvicorn[standard]
+
+# --- 数据处理（为 CSV/Excel 上传、EDA、特征工程预留）---
+pandas
+numpy
+openpyxl
+python-multipart
+xlrd
+
+# --- 开发/测试 ---
+pytest
+httpx
+
+# --- 后续阶段再逐步加入（当前阶段不启用）---
+# scikit-learn
+# xgboost
+# shap
