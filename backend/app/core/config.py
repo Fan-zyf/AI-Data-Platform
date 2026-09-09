@@ -4,6 +4,10 @@
 """
 
 import os
+from pathlib import Path
+
+# backend 目录绝对路径（backend/app/core/config.py 的上级两级）
+_BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 
 class Settings:
@@ -35,6 +39,26 @@ class Settings:
     def data_max_upload_bytes(self) -> int:
         """文件大小上限（字节）。"""
         return self.data_max_upload_mb * 1024 * 1024
+
+    # ---- Dataset Session（临时数据集会话）----
+    # Session 有效时长（分钟），默认 2 小时；无后台定时任务，访问/上传时惰性清理
+    dataset_session_ttl_minutes: int = int(
+        os.getenv("DATASET_SESSION_TTL_MINUTES", "120")
+    )
+    # 会话数据根目录（默认 backend/runtime/datasets，已被 .gitignore 忽略）
+    dataset_runtime_dir: str = os.getenv(
+        "DATASET_RUNTIME_DIR", str(_BACKEND_DIR / "runtime" / "datasets")
+    )
+
+    # ---- 自动 EDA ----
+    eda_max_correlation_columns: int = 30  # 参与相关性矩阵的最大数值字段数
+    eda_top_values: int = 10  # 分类变量 Top N
+    eda_top_correlations: int = 10  # 相关性 Top N
+    eda_max_histogram_bins: int = 40  # 直方图最大分箱数
+    eda_min_histogram_bins: int = 6  # 直方图最小分箱数
+    eda_strong_correlation_threshold: float = 0.7  # 强相关阈值（|r|）
+    eda_high_missing_threshold_percent: float = 20.0  # 高缺失率阈值（%）
+    eda_low_cardinality_text_ratio: float = 0.1  # 低基数 text 字段纳入分类分析的唯一值占比上限
 
 
 settings = Settings()

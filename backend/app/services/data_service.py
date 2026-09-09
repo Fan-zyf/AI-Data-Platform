@@ -339,11 +339,8 @@ def _build_quality(
     return overview, warnings
 
 
-def analyze_upload_file(file_name: str, content: bytes) -> DataUploadResponse:
-    """上传文件的完整分析流程：校验 -> 解析 -> 画像 -> 质量 -> 预览。
-
-    仅做只读分析，不会修改或落盘用户上传的原始数据。
-    """
+def _load_validated_frame(file_name: str, content: bytes) -> tuple[pd.DataFrame, str]:
+    """校验并解析上传内容，返回 (DataFrame, 扩展名)。"""
     # --- 基础校验 ---
     if not file_name.strip():
         raise DataServiceError("invalid_file_name", "文件名不能为空，请重新选择文件。")
@@ -386,6 +383,15 @@ def analyze_upload_file(file_name: str, content: bytes) -> DataUploadResponse:
             "文件中未读取到任何数据列，请确认表格包含表头或有效数据。",
             status_code=422,
         )
+    return df, ext
+
+
+def analyze_upload_file(file_name: str, content: bytes) -> DataUploadResponse:
+    """上传文件的完整分析流程：校验 -> 解析 -> 画像 -> 质量 -> 预览。
+
+    仅做只读分析，不会修改或落盘用户上传的原始数据。
+    """
+    df, ext = _load_validated_frame(file_name, content)
 
     # --- 逐列画像与整体质量 ---
     column_profiles, masks = _build_column_profiles(df)
@@ -406,3 +412,25 @@ def analyze_upload_file(file_name: str, content: bytes) -> DataUploadResponse:
         preview=_build_preview(df, settings.data_preview_rows),
         warnings=warnings,
     )
+
+
+# ============================================================
+# 以下为供 Dataset Session / EDA / 后续特征工程等模块复用的公开接口
+# ============================================================
+
+
+def read_dataframe(file_type: str, content: bytes) -> pd.DataFrame:
+    """按文件类型把字节内容解析为 DataFrame（不含扩展名与大小校验）。
+
+    供 Dataset Session 从临时目录加载会话数据时复用，保证与上传解析行为一致。
+    """
+    if file_type == "csv":
+        return _read_csv(content)
+    if file_type in ("xlsx", "xls"):
+        return _read_excel(content, file_type)
+    raise DataServiceError("unsupported_file_type", f"不支持 .{file_type} 类型的数据文件。")
+
+
+def analyze_columns(df: pd.DataFrame) -> tuple[list[ColumnProfile], list[pd.Series]]:
+    """返回 (列画像列表, 各列缺失掩码列表)，供上传画像与 EDA 复用。"""
+    return _build_column_profiles(df)

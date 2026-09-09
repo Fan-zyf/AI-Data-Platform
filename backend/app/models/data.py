@@ -3,6 +3,7 @@
 所有接口返回结构都通过这些模型定义，保证前端拿到稳定的 JSON 结构。
 """
 
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -63,10 +64,25 @@ class ErrorResponse(BaseModel):
     error: UploadError
 
 
-class DataUploadResponse(BaseModel):
-    """POST /api/data/upload 的成功响应结构。"""
+class DatasetDeleteResponse(BaseModel):
+    """DELETE /api/datasets/{dataset_id} 的成功响应结构。"""
 
     success: bool = True
+    message: str = Field(..., description="删除结果提示")
+
+
+class DataUploadResponse(BaseModel):
+    """POST /api/data/upload 的成功响应结构。
+
+    成功上传后会创建临时 Dataset Session，因此额外携带 dataset_id 与会话生命周期。
+    """
+
+    success: bool = True
+    dataset_id: str | None = Field(
+        None, description="临时数据集会话 ID（UUID）；创建失败时为 null"
+    )
+    created_at: datetime | None = Field(None, description="会话创建时间（UTC ISO8601）")
+    expires_at: datetime | None = Field(None, description="会话过期时间（UTC ISO8601）")
     dataset: DatasetInfo
     quality: QualityOverview
     column_profiles: list[ColumnProfile] = Field(default_factory=list)

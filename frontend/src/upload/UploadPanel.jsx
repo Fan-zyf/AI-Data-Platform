@@ -1,8 +1,18 @@
 import { useRef, useState } from 'react'
+import EDASection from '../eda/EDASection.jsx'
 
 const ACCEPT = '.csv,.xlsx,.xls'
 const ALLOWED_EXT = ['csv', 'xlsx', 'xls']
 const MAX_FILE_MB = 20
+
+async function deleteSession(datasetId) {
+  if (!datasetId) return
+  try {
+    await fetch(`/api/datasets/${datasetId}`, { method: 'DELETE' })
+  } catch {
+    // 网络异常时服务端会话会随 TTL 自动过期，本地直接重置即可
+  }
+}
 
 function formatBytes(bytes) {
   if (!Number.isFinite(bytes) || bytes < 0) return '-'
@@ -232,7 +242,7 @@ function PreviewTable({ result }) {
   )
 }
 
-function ResultView({ result }) {
+function ResultView({ result, onCleared }) {
   const { dataset, quality } = result
   return (
     <div className="result-view">
@@ -241,6 +251,11 @@ function ResultView({ result }) {
         <p className="result-meta">
           {dataset.file_name} · {dataset.file_type.toUpperCase()} ·{' '}
           {formatBytes(dataset.file_size)}
+          {result.dataset_id && (
+            <>
+              {' '}· 数据集 ID <code className="dataset-id-text">{result.dataset_id}</code>
+            </>
+          )}
         </p>
       </div>
 
@@ -262,6 +277,15 @@ function ResultView({ result }) {
       <WarningsPanel warnings={result.warnings} />
       <FieldsTable profiles={result.column_profiles} />
       <PreviewTable result={result} />
+
+      {result.dataset_id && (
+        <EDASection
+          datasetId={result.dataset_id}
+          datasetName={dataset.file_name}
+          expiresAt={result.expires_at}
+          onCleared={onCleared}
+        />
+      )}
     </div>
   )
 }
@@ -274,6 +298,8 @@ export default function UploadPanel() {
 
   const handleFileChange = (nextFile) => {
     const ext = getExtension(nextFile.name)
+    // 更换文件时顺带清理上一个会话（best effort，失败时由服务端 TTL 兜底）
+    if (result?.dataset_id) deleteSession(result.dataset_id)
     if (!ALLOWED_EXT.includes(ext)) {
       setFile(null)
       setResult(null)
@@ -283,6 +309,14 @@ export default function UploadPanel() {
     setFile(nextFile)
     setError(null)
     setResult(null)
+  }
+
+  const resetAll = async () => {
+    const sessionId = result?.dataset_id
+    setFile(null)
+    setResult(null)
+    setError(null)
+    await deleteSession(sessionId)
   }
 
   const handleUpload = async () => {
@@ -339,15 +373,7 @@ export default function UploadPanel() {
             )}
           </button>
           {file && !uploading && (
-            <button
-              type="button"
-              className="btn-ghost"
-              onClick={() => {
-                setFile(null)
-                setResult(null)
-                setError(null)
-              }}
-            >
+            <button type="button" className="btn-ghost" onClick={resetAll}>
               清除
             </button>
           )}
@@ -364,7 +390,7 @@ export default function UploadPanel() {
         </div>
       )}
 
-      {result && <ResultView result={result} />}
+      {result && <ResultView result={result} onCleared={resetAll} />}
     </section>
   )
 }

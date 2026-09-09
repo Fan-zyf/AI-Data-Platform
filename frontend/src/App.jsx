@@ -69,12 +69,13 @@ function App() {
     <div className="page">
       <main className="content">
         <header className="hero">
-          <span className="badge">v0.2.0 · Data Upload</span>
+          <span className="badge">v0.3.0 · Dataset Session + Auto EDA</span>
           <h1 className="title">AI Data Intelligence Platform</h1>
           <p className="subtitle">智能数据分析与预测平台</p>
           <p className="intro">
-            当前已支持 CSV / Excel 数据上传与基础画像，后续将逐步支持数据质量检测、
-            EDA、特征工程、机器学习建模、模型解释与 LLM 分析。
+            当前已支持 CSV / Excel 数据上传、临时数据集会话（Dataset Session）与自动
+            EDA（描述统计、直方图、分类 Top-N、缺失分析、IQR 异常值、Pearson 相关），
+            后续将逐步支持特征工程、机器学习建模、模型解释与 LLM 分析。
           </p>
           <SystemStatus />
         </header>

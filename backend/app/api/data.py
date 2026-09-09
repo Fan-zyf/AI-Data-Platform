@@ -1,6 +1,7 @@
 """数据上传与分析相关路由。
 
-路由只负责 HTTP 传输与错误格式转换，真正的解析/画像逻辑在 services.data_service 中。
+路由只负责 HTTP 传输与错误格式转换，真正的解析/画像逻辑在 services.data_service 中，
+临时会话生命周期在 services.dataset_manager 中管理。
 """
 
 import logging
@@ -11,6 +12,7 @@ from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 from app.models.data import DataUploadResponse
+from app.services import dataset_manager
 from app.services.data_service import DataServiceError, analyze_upload_file
 
 logger = logging.getLogger(__name__)
@@ -62,9 +64,27 @@ async def upload_data(file: UploadFile = File(...)):
     try:
         content = await _read_with_limit(file, settings.data_max_upload_bytes)
         result = analyze_upload_file(file_name, content)
-        return result
+
+        # 分析成功后创建临时 Dataset Session，返回 dataset_id 供后续 EDA 复用
+        session = dataset_manager.create_session(
+            original_filename=file_name,
+            file_type=result.dataset.file_type,
+            content=content,
+            rows=result.dataset.rows,
+            columns=result.dataset.columns,
+        )
+        return result.model_copy(
+            update={
+                "dataset_id": session.dataset_id,
+                "created_at": session.created_at,
+                "expires_at": session.expires_at,
+            }
+        )
     except DataServiceError as exc:
         logger.warning("upload rejected: code=%s, file=%s", exc.code, file_name)
+        return _error_response(exc.status_code, exc.code, exc.message)
+    except dataset_manager.DatasetSessionError as exc:
+        logger.warning("session create failed: code=%s, file=%s", exc.code, file_name)
         return _error_response(exc.status_code, exc.code, exc.message)
     except Exception:
         logger.exception("unexpected error while analyzing upload: %s", file_name)
