@@ -1130,6 +1130,22 @@
   gap: 10px;
 }
 .compare-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+
+.explainability-panel { display: flex; flex-direction: column; gap: 14px; }
+.shap-config { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid rgba(125,157,255,0.18); border-radius: 10px; background: rgba(20, 26, 56, 0.55); }
+.shap-config-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.shap-result { display: flex; flex-direction: column; gap: 14px; }
+.shap-result-meta { font-size: 12px; color: #93a1c4; }
+.shap-chart-wrap { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid rgba(125,157,255,0.12); border-radius: 10px; background: rgba(20, 26, 56, 0.35); }
+.shap-chart-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px; }
+.shap-chart-head h5 { margin: 0; font-size: 13px; color: #cbd5f5; }
+.shap-sample-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.shap-sample-card { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid rgba(125,157,255,0.15); border-radius: 10px; background: rgba(17, 23, 51, 0.55); }
+.shap-sample-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px; font-size: 12px; }
+.shap-sample-id { color: #93a1c4; font-family: 'JetBrains Mono', 'Menlo', monospace; }
+.shap-sample-pred strong { color: #f9a8d4; }
+.shap-sample-base { font-size: 11px; color: #93a1c4; }
+.ml-explainability { margin-top: 8px; }
 .compare-result { display: flex; flex-direction: column; gap: 6px; }
 .compare-direction { color: #8b97b8; font-size: 12px; }
 .compare-row {

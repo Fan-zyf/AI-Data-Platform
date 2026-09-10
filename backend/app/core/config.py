@@ -86,5 +86,15 @@ class Settings:
     ml_roc_max_points: int = 200
     ml_scatter_max_points: int = 500
 
+    # ---- 模型可解释性（v0.6：SHAP）----
+    # 解释使用的最大样本数（从源版本随机采样，避免大数据集 SHAP 超时）
+    ml_shap_sample_size: int = int(os.getenv("ML_SHAP_SAMPLE_SIZE", "200"))
+    # KernelExplainer 的背景摘要样本数（kmeans 摘要）
+    ml_shap_background_size: int = int(os.getenv("ML_SHAP_BACKGROUND_SIZE", "50"))
+    # SHAP 单点解释（前端展示）的最大条数
+    ml_shap_top_features: int = int(os.getenv("ML_SHAP_TOP_FEATURES", "30"))
+    # SHAP 计算超时（秒），超过则强制降级或返回错误
+    ml_shap_timeout_seconds: int = int(os.getenv("ML_SHAP_TIMEOUT_SECONDS", "120"))
+
 
 settings = Settings()

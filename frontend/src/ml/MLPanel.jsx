@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import ExplainabilityPanel from '../explainability/ExplainabilityPanel.jsx'
 import ExperimentReport, { MODEL_LABELS } from './ExperimentReport.jsx'
 
 const CLASS_MODELS = ['dummy', 'logistic_regression', 'random_forest']
@@ -853,6 +854,16 @@ export default function MLPanel({ datasetId }) {
               </>
             )}
           </div>
+
+          {/* ---- 模型可解释性（v0.6 SHAP）---- */}
+          {activeReport && (
+            <div className="ml-explainability ml-report-area">
+              <ExplainabilityPanel
+                datasetId={datasetId}
+                experiment={activeReport}
+              />
+            </div>
+          )}
         </div>
 
         {/* ================= 侧栏：实验历史 ================= */}

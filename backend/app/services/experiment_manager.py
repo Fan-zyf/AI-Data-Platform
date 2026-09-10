@@ -35,6 +35,8 @@ EXPERIMENTS_DIR_NAME = "experiments"
 MODEL_FILE = "model.joblib"
 METADATA_FILE = "metadata.json"
 EVALUATION_FILE = "evaluation.json"
+# v0.6 SHAP 解释结果（位于每个 experiment 目录下，随 experiment 删除而清理）
+SHAP_RESULT_FILE = "shap_result.json"
 
 
 class ExperimentError(DatasetSessionError):
@@ -273,3 +275,105 @@ def find_experiments_using_version(dataset_id: str, version_id: str) -> list[str
         if str(metadata.get("source_version_id", "original")) == ref:
             matches.append(str(metadata.get("experiment_id", directory.name)))
     return matches
+
+
+# ============================================================
+# v0.6 模型可解释性：跨会话定位 / SHAP 结果持久化
+# ============================================================
+
+
+def _runtime_root() -> Path:
+    """Dataset Session 根目录（runtime/datasets）。"""
+    from app.core.config import settings
+
+    return Path(settings.dataset_runtime_dir)
+
+
+def find_experiment_location(experiment_id: str) -> tuple[str, Path] | None:
+    """跨会话扫描，定位 experiment_id 所属的 dataset_id 与目录。
+
+    返回 (dataset_id, experiment_dir)，找不到返回 None。
+    仅识别 UUID 格式的目录名，避免误判临时文件。
+    """
+    normalized = normalize_experiment_id(experiment_id)
+    root = _runtime_root()
+    if not root.is_dir():
+        return None
+    for session_dir in root.iterdir():
+        if not session_dir.is_dir():
+            continue
+        candidate = session_dir / ML_DIR_NAME / EXPERIMENTS_DIR_NAME / normalized
+        if candidate.is_dir() and (candidate / METADATA_FILE).is_file():
+            return session_dir.name, candidate
+    return None
+
+
+def write_shap_result(
+    experiment_dir: Path,
+    payload: dict,
+    metadata: dict,
+) -> Path:
+    """把 SHAP 解释结果写入 <experiment>/shap_result.json，并更新 metadata.json。
+
+    payload：完整解释结果（global / summary / samples / 评估信息）。
+    metadata：仅解释相关的附加元信息，会 merge 到 metadata.json 的
+    ``explainability`` 字段下，供实验详情接口直接读取。
+    """
+    import os
+    import tempfile
+
+    target = Path(experiment_dir) / SHAP_RESULT_FILE
+    tmp_path = target.with_suffix(target.suffix + ".tmp")
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=str(target.parent),
+            prefix=".shap_",
+            suffix=".tmp",
+            delete=False,
+        ) as fp:
+            json.dump(payload, fp, ensure_ascii=False, indent=2)
+            tmp_path = Path(fp.name)
+        os.replace(tmp_path, target)
+    except OSError as exc:  # pragma: no cover - 文件系统异常
+        if tmp_path.exists():
+            tmp_path.unlink(missing_ok=True)
+        raise _experiment_error(
+            "shap_persist_error",
+            "保存 SHAP 解释结果失败，请稍后重试。",
+            status_code=500,
+        ) from exc
+
+    # 更新 metadata.json：标记 explainability 状态、记录文件相对路径与时间戳
+    meta_path = Path(experiment_dir) / METADATA_FILE
+    try:
+        existing = json.loads(meta_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        existing = {}
+    existing["explainability"] = {
+        "status": "computed",
+        "result_path": SHAP_RESULT_FILE,
+        "created_at": metadata.get("created_at"),
+        "explainer_type": metadata.get("explainer_type"),
+        "model_class": metadata.get("model_class"),
+        "task_type": metadata.get("task_type"),
+        "class_label_used": metadata.get("class_label_used"),
+        "n_rows_used": metadata.get("n_rows_used"),
+        "warnings": metadata.get("warnings", []),
+    }
+    meta_path.write_text(
+        json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    return target
+
+
+def read_shap_result(experiment_dir: Path) -> dict | None:
+    """读取已保存的 SHAP 解释结果；文件不存在或损坏时返回 None。"""
+    target = Path(experiment_dir) / SHAP_RESULT_FILE
+    if not target.is_file():
+        return None
+    try:
+        return json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):  # pragma: no cover - 损坏的 JSON
+        return None

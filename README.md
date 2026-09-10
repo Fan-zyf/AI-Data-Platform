@@ -4,7 +4,7 @@
 
 一个可长期扩展的 AI 数据智能分析平台。
 
-**当前进度（v0.5.0）**
+**当前进度（v0.6.0）**
 - ✅ 基础架构：React + Vite 前端 / FastAPI 后端 / Git
 - ✅ CSV、Excel(.xlsx/.xls) 数据上传与解析（只读分析，不修改原始数据）
 - ✅ 基础数据画像：字段类型推断、缺失统计、唯一值、前 20 行预览、质量警告
@@ -23,7 +23,15 @@
   - 实验管理：列表 / 详情 / 删除 / 版本删除保护（实验引用版本时 409）
   - 批量预测：基于持久化 Pipeline 对新记录打分，支持分类概率
   - 前端 ML 面板：训练配置、CV 对比表、混淆矩阵、ROC、回归散点 / 残差、预测结果表
-- ⬜ 后续规划：模型解释（SHAP）、LLM 分析、Skill / MCP 扩展
+- ✅ 模型可解释性（v0.6）：
+  - SHAP 解释（Tree / Linear / Kernel explainer 按模型类型自动路由）
+  - 全局特征重要性 + SHAP Summary 散点 + 单点预测解释
+  - 解释结果持久化到 `runtime/datasets/<id>/ml/experiments/<exp>/shap_result.json`，与 `metadata.json#explainability` 同步
+  - 跨会话定位 experiment_id，dataset-scoped 入口校验归属
+  - 重复请求默认命中缓存，`regenerate=true` 强制重算
+  - 实验删除级联清理 SHAP 文件（沿用 v0.5 `shutil.rmtree`）
+  - 前端 SHAP 面板：生成 / 缓存 / 强制重算 + 三个 ECharts 图表
+- ⬜ 后续规划：LLM 分析、Skill / MCP 扩展
 
 ## 技术栈
 
@@ -33,9 +41,11 @@
 | 后端 | Python 3.14 + FastAPI |
 | 数据处理 | pandas、numpy、openpyxl、xlrd |
 | 机器学习 | scikit-learn 1.9.0、joblib |
-| 后续扩展 | XGBoost、SHAP、LLM、Skill、MCP |
+| 模型解释 | SHAP 0.52.0（Tree / Linear / Kernel） |
+| 后续扩展 | XGBoost、LLM、Skill、MCP |
 | 版本管理 | Git |
 
+> v0.6 新增 Python 依赖：**shap==0.52.0**（含 numba / llvmlite / slicer 间接依赖，Python 3.14 已配 prebuilt wheel）。
 > v0.5 新增 Python 依赖：**scikit-learn==1.9.0**、**joblib**（Pipeline 持久化）。
 > v0.4 新增 Python 依赖：无（数据清洗/特征工程全部用已有 pandas/numpy 实现）。
 
@@ -51,8 +61,9 @@ AI-Data-Platform/
 │   │   │   ├── data.py        # POST /api/data/upload
 │   │   │   ├── datasets.py    # GET /api/datasets/{id}/eda?version_id=、DELETE /api/datasets/{id}
 │   │   │   ├── processing.py  # v0.4：preview / apply / versions / compare / delete-version
-│   │   │   └── ml.py          # v0.5：train / experiments / predict
-│   │   ├── core/config.py     # 配置（端口、CORS、上传限制等）
+│   │   │   ├── ml.py          # v0.5：train / experiments / predict
+│   │   │   └── explainability.py  # v0.6：POST /api/ml/experiments/{exp_id}/explain（dataset-scoped 同义入口）
+│   │   ├── core/config.py     # 配置（端口、CORS、上传限制、ML_*、ML_SHAP_* 等）
 │   │   ├── services/
 │   │   │   ├── data_service.py         # 文件解析 / 数据画像 / 质量分析
 │   │   │   ├── dataset_manager.py      # Dataset Session 的创建 / 读取 / 过期清理 / 删除
@@ -60,15 +71,17 @@ AI-Data-Platform/
 │   │   │   ├── processing_service.py   # v0.4：预览 / 应用 9 种变换操作
 │   │   │   ├── version_manager.py      # v0.4：UUID 版本目录 / 加载 / 列表 / 对比 / 删除 + v0.5 ML 引用保护
 │   │   │   ├── ml_service.py           # v0.5：训练管线 / CV / 测试评估 / 预测
-│   │   │   ├── experiment_manager.py   # v0.5：实验目录 / 持久化 / 列表 / 详情 / 删除 / 引用检查
-│   │   │   └── preprocessing_factory.py # v0.5：为 sklearn Pipeline 生成 ColumnTransformer
+│   │   │   ├── experiment_manager.py   # v0.5：实验目录 / 持久化 / 列表 / 详情 / 删除 / 引用检查 + v0.6 跨会话定位 / SHAP 写回
+│   │   │   ├── preprocessing_factory.py # v0.5：为 sklearn Pipeline 生成 ColumnTransformer
+│   │   │   └── shap_service.py         # v0.6：Tree/Linear/Kernel explainer 路由 + 全局/summary/单点解释
 │   │   └── models/
 │   │       ├── data.py        # 上传响应的 Pydantic 模型
 │   │       ├── eda.py         # 自动 EDA 响应的 Pydantic 模型
 │   │       ├── processing.py  # v0.4：TransformationPlan / Operation / 版本相关响应模型
-│   │       └── ml.py          # v0.5：训练 / 预测 / 实验的 Pydantic 模型
-│   ├── runtime/               # 运行时临时数据（会话目录 + 派生版本 + ML 实验，自动清理，勿提交）
-│   ├── tests/                 # pytest 自动化测试（97 个用例：v0.4 65 + v0.5 32）
+│   │       ├── ml.py          # v0.5：训练 / 预测 / 实验的 Pydantic 模型
+│   │       └── explainability.py  # v0.6：ExplainRequest / SHAPFeatureImportance / SHAPContribution / SHAPSampleExplanation
+│   ├── runtime/               # 运行时临时数据（会话目录 + 派生版本 + ML 实验 + SHAP，自动清理，勿提交）
+│   ├── tests/                 # pytest 自动化测试（109 个用例：v0.4 65 + v0.5 32 + v0.6 12）
 │   └── requirements.txt
 ├── data/
 │   └── sample/demo.csv        # 示例数据（含数值/分类/文本/日期/布尔列、缺失与重复）
@@ -90,8 +103,13 @@ AI-Data-Platform/
 │   │   │   ├── VersionCompare.jsx        # 版本 A/B 对比
 │   │   │   └── DataTable.jsx             # 通用数据表（null 渲染/行数截断）
 │   │   └── ml/                # v0.5 机器学习面板
-│   │       ├── MLPanel.jsx             # 训练配置 / 实验历史 / 批量预测
+│   │       ├── MLPanel.jsx             # 训练配置 / 实验历史 / 批量预测 / 解释入口
 │   │       └── ExperimentReport.jsx    # 实验报告：CV 对比 / CM / ROC / 回归 / 残差
+│   │   └── explainability/     # v0.6 模型可解释性面板
+│   │       ├── ExplainabilityPanel.jsx     # 主容器：生成 / 缓存 / 强制重算 + 错误提示
+│   │       ├── FeatureImportanceChart.jsx  # 全局 mean|SHAP| 横向条形图
+│   │       ├── SHAPSummaryChart.jsx        # Beeswarm 风格散点（颜色映射原始值）
+│   │       └── SampleExplanation.jsx       # 单点预测解释卡片（贡献条形图）
 │   ├── index.html
 │   └── vite.config.js         # /api 代理到后端
 ├── .env.example
@@ -99,7 +117,7 @@ AI-Data-Platform/
 └── README.md
 ```
 
-### 运行时文件布局（v0.4 版本化 + v0.5 ML 实验）
+### 运行时文件布局（v0.4 版本化 + v0.5 ML 实验 + v0.6 SHAP）
 
 ```
 backend/runtime/datasets/<dataset_id>/
@@ -113,8 +131,9 @@ backend/runtime/datasets/<dataset_id>/
     └── experiments/
         └── <experiment_id>/    # experiment_id = 服务端生成的合法 UUID
             ├── model.joblib        # 完整 Best Pipeline（预处理 + 模型）
-            ├── metadata.json       # 实验元信息（目标 / 特征 / 候选 / 评估摘要）
-            └── evaluation.json     # CV 全模型对比 + 最终测试评估（CM / ROC / 散点 / 残差）
+            ├── metadata.json       # 实验元信息（含 explainability 子段：status / result_path / explainer_type / created_at …）
+            ├── evaluation.json     # CV 全模型对比 + 最终测试评估（CM / ROC / 散点 / 残差）
+            └── shap_result.json    # v0.6 SHAP 解释结果（global / summary / samples / class_label_used / base_value …）
 ```
 
 版本模型为单向 **parent / child 链**：`original → v1 → v2 …`。
@@ -510,6 +529,116 @@ compare 返回（A→B 方向）：`rows/columns/missing/duplicates` 的 A/B 两
 - **多任务适配**：分类产出混淆矩阵 + ROC；回归产出 actual/predicted 散点 + 残差直方图 + RMSE/MAE/R²。
 - **数值稳定**：sklearn 1.9.0；`roc_curve` 显式传 `pos_label=class_labels[1]`，确保字符串类目标可用。
 
+### 模型可解释性 API（v0.6）
+
+针对已训练完成的 experiment（任意 dataset_id / source_version_id / 模型类型）生成 SHAP 解释。
+解释结果同时落盘到 ``runtime/datasets/<dataset_id>/ml/experiments/<experiment_id>/shap_result.json``，
+并把 ``status: "computed"`` 写回 experiment 的 ``metadata.json#explainability`` 字段。
+
+提供两个等价入口：
+
+- ``POST /api/ml/experiments/{experiment_id}/explain``（用户指定路径；服务端扫描 ``runtime/datasets`` 定位所属 dataset）
+- ``POST /api/datasets/{dataset_id}/ml/experiments/{experiment_id}/explain``（与 v0.5 风格保持一致的 dataset-scoped 入口，并校验归属）
+
+请求体 ``ExplainRequest``（全部可选）：
+
+```json
+{
+  "sample_indices": [0, 5, 12],
+  "max_summary_rows": 200,
+  "regenerate": false
+}
+```
+
+- ``sample_indices``：单点解释的样本索引（相对于 SHAP 采样行，0 ≤ idx < n_rows_used，最多 20 个）。
+- ``max_summary_rows``：summary 阶段从源版本采样的行数（1~1000，默认 ``ML_SHAP_SAMPLE_SIZE``）。
+- ``regenerate``：默认 False 命中缓存；为 True 时强制重算并覆盖 ``shap_result.json``。
+
+成功返回（关键字段）：
+
+```json
+{
+  "success": true,
+  "experiment_id": "ec0b6826-…",
+  "dataset_id": "…",
+  "source_version_id": "original",
+  "task_type": "classification",
+  "best_model": "random_forest",
+  "model_class": "RandomForestClassifier",
+  "explainer_type": "tree",
+  "class_label_used": "yes",
+  "class_labels": ["no", "yes"],
+  "base_value": 0.5234,
+  "n_features_post_preprocessing": 5,
+  "feature_names": ["numeric__x1", "numeric__x2", "categorical__grp_Alpha", "categorical__grp_Beta", "categorical__grp_Gamma"],
+  "global": {
+    "feature_names": [...],
+    "importance": [0.123, 0.087, ...],
+    "n_rows_used": 120,
+    "top_feature_names": [...],
+    "top_importance": [...]
+  },
+  "summary": {
+    "feature_names": [...],
+    "sample_indices": [3, 7, 14, ...],
+    "values": [[0.34, 0.0, 1.0, 0.0, 0.0], ...],
+    "raw_values": [[0.34, 8.0, "Beta"], ...],
+    "raw_feature_names": ["x1", "x2", "grp"],
+    "shap_values": [[0.03, -0.02, 0.05, -0.01, 0.0], ...]
+  },
+  "samples": [
+    {
+      "index": 0,
+      "sample_source_index": 3,
+      "prediction": { "kind": "classification", "class_label": "yes", "probability": 0.73 },
+      "base_value_delta": 0.21,
+      "contributions": [
+        { "feature": "numeric__x1", "value": 0.34, "shap": 0.05 },
+        ...
+      ],
+      "top_contributions": [...]
+    }
+  ],
+  "warnings": [],
+  "created_at": "2026-09-10T02:18:00Z",
+  "app_version": "0.6.0",
+  "cached": false
+}
+```
+
+关键约定：
+- ``feature_names / summary.values / summary.shap_values / samples[].contributions[].feature`` **都基于 post-preprocessing 矩阵**（含 One-Hot 展开后特征名），三者维数严格一致；
+- ``summary.raw_values`` 与 ``summary.raw_feature_names`` 同时给出原始数据值（仅供人读，便于理解原始取值与 SHAP 的对应关系）；
+- 对分类任务统一以 ``class_labels[1]``（即「正类」）的 SHAP 为基准，``base_value`` 同样取 ``expected_value[1]``，二分类与多分类走同一条前端路径；
+- ``samples`` 默认 3 条（首/中/末），可通过请求体 ``sample_indices`` 自定义；
+- 全部 SHAP 数值经过 ``round(…, 6)`` 并保证 JSON safe（NaN / Inf 转为 null）。
+
+错误码：
+- ``invalid_experiment_id``（400）
+- ``experiment_not_found``（404）
+- ``experiment_model_missing``（500）
+- ``experiment_dataset_mismatch``（400，dataset-scoped 入口专属）
+- ``source_version_unavailable``（422）
+- ``experiment_invalid``（500，特征缺失等）
+- ``empty_dataset``（422）
+- ``shap_computation_failed``（500，SHAP 内部异常）
+- ``shap_persist_error``（500，落盘失败）
+
+### 模型可解释性设计约定（v0.6）
+
+- **复用 v0.5 已落盘 Pipeline**：不重新训练 / 不重新 fit 任何预处理；直接 ``joblib.load(model.joblib)`` 并切出 ``pipeline[:-1]`` 作为 preprocessor。
+- **三档 Explainer 自动路由**：
+  - ``RandomForestClassifier / RandomForestRegressor`` → ``shap.TreeExplainer``（精确，O(树深度)）；
+  - ``LogisticRegression / Ridge`` → ``shap.LinearExplainer``（interventional 路径，O(1)）；
+  - ``DummyClassifier / DummyRegressor / 其它`` → ``shap.KernelExplainer``（兜底，背景摘要 ``kmeans(ML_SHAP_BACKGROUND_SIZE)``）。
+- **特征名优先用 v0.5 已存的 ``feature_names_out``**：避免 One-Hot 之后再次推断；只有当元信息缺失时才回退到 ``ColumnTransformer.get_feature_names_out()``，再不行则回退为 ``feature_i``。
+- **分类 SHAP 基准固定为正类**：与 v0.5 的 ROC 曲线（``pos_label=class_labels[1]``）保持一致，前端无需为类别数写分支。
+- **3D / 2D / list-of-2D 兼容**：服务统一用 ``_select_class_shap`` 归一化为 ``(n_samples, n_features)``，对 TreeExplainer 新旧格式与 KernelExplainer 的 list 输出一视同仁。
+- **采样与缓存**：相同 ``random_state`` 下重新计算可复现；``shap_result.json`` 与 ``metadata.json#explainability`` 同步写回，**重复请求默认命中缓存**，``regenerate=true`` 强制重算。
+- **级联删除**：实验删除走 ``shutil.rmtree(experiment_dir)``，``shap_result.json`` 跟随整个目录被删除，**无需任何额外代码**。
+- **跨会话定位** ``find_experiment_location``：服务端通过扫描 ``runtime/datasets/*/ml/experiments/<uuid>`` 找到 experiment 所属 dataset，因此前端可以走不带 dataset_id 的简洁路径。
+- **磁盘路径遵守约束**：所有 SHAP 产物仅落在 ``D:\ai\AI-Data-Platform\backend\runtime\``，绝不写入 C 盘。
+
 ## 自动化测试
 
 ```powershell
@@ -517,12 +646,13 @@ cd backend
 .venv\Scripts\python.exe -m pytest tests -v
 ```
 
-共 **97 个用例全部通过**（旧有 65 + v0.5 新增 32）：
+共 **109 个用例全部通过**（旧有 65 + v0.5 新增 32 + v0.6 新增 12）：
 
 - `tests/test_upload.py`（10）：CSV 成功 / Excel(.xlsx) 成功 / 非法扩展名 / 空文件 / 损坏 CSV / 损坏 Excel / 超限文件 / 健康检查；
 - `tests/test_datasets_eda.py`（17）：Dataset Session 上传建会话、落盘、删除 / EDA 结构与数值统计 / 缺失 / IQR 异常 / Pearson 相关 / 分类 TopN / 非法、不存在与过期 dataset_id / 边界数据；
 - `tests/test_processing.py`（38，v0.4 新增）：drop_duplicates / 各类 fill_missing（mean/median/mode/constant/drop_rows/drop_columns）/ drop_columns 全部删除防护 / convert_type / remove_outliers（clip 与 remove_rows）/ text_transform / date_features（含命名冲突）/ one_hot_encode（含高基数确认与拒绝）/ scale_numeric（标准化、min-max、常量列跳过）/ **preview 不写盘 / apply 原子性（失败不落盘、成功生成 2 个版本）/ original 字节哈希不变 / 非法 version_id 与 404 / 子版本 409 / 版本感知 EDA 等**；
 - `tests/test_ml.py`（32，v0.5 新增）：健康检查 + 训练（auto 推断 classification / regression / 显式 task_type 校验 / 目标缺失 drop / 常量目标拒绝 / 特征全集显式 / exclude / 高基数 categorical 拒绝 / 唯一值过少拒绝 / ID-like 整型高基数自动排除 / float 连续特征保留 / 候选模型自定义 / 测试集含训练集目标值（已切分干净）/ test_size 越界 / cv_folds 越界 / 全部候选失败清理 / 多类分类报告 / 显式 task + auto 推断一致）+ 列表 / 详情 / 删除 / 预测（多记录 + 类别概率 / 缺特征 422 / 多余字段警告 / 回归无概率 / 实验不存在 / 非法 experiment_id）+ 派生版本引用保护 409 / 删除实验后再删版本成功 / 整型/类别混合数据集 / 数据集不存在 404 / 上传后整 session 生命周期。
+- `tests/test_explainability.py`（12，v0.6 新增）：experiment 不存在 404 / 非法 experiment_id 400 / 模型文件缺失 500 / **classification TreeExplainer** / **regression TreeExplainer** / JSON schema 完整性 / 落盘路径与 metadata 写回 / 删除实验级联清理 / **Dummy KernelExplainer 兜底**（SHAP ≈ 0）/ dataset-scoped 入口 + 跨 dataset 校验 / 缓存命中与 regenerate 行为 / ExplainRequest 字段校验。
 
 ## 手动测试
 
@@ -565,9 +695,21 @@ curl.exe -X POST http://127.0.0.1:8000/api/datasets/<dataset_id>/ml/experiments/
   -H "Content-Type: application/json" `
   -d '{\"records\": [{\"age\":30,\"income\":11500,\"tenure\":10,\"region\":\"West\",\"plan_type\":\"Basic\",\"is_active\":true}]}'
 curl.exe -X DELETE http://127.0.0.1:8000/api/datasets/<dataset_id>/ml/experiments/<experiment_id>
+
+# v0.6 模型可解释性：生成 SHAP 解释（简化路径：仅 experiment_id）
+curl.exe -X POST http://127.0.0.1:8000/api/ml/experiments/<experiment_id>/explain `
+  -H "Content-Type: application/json" `
+  -d '{\"max_summary_rows\": 200, \"sample_indices\": [0, 5, 12]}'
+
+# v0.6 强制重算（覆盖缓存）
+curl.exe -X POST http://127.0.0.1:8000/api/ml/experiments/<experiment_id>/explain `
+  -H "Content-Type: application/json" -d '{\"regenerate\": true}'
+
+# v0.6 dataset-scoped 入口（额外校验归属）
+curl.exe -X POST http://127.0.0.1:8000/api/datasets/<dataset_id>/ml/experiments/<experiment_id>/explain
 ```
 
-或直接用浏览器打开 <http://localhost:5173> 拖拽上传，体验「**上传 → EDA → 数据清洗 → 版本化 → 指定版本 EDA / 版本对比 → 机器学习训练（CV 对比 / 混淆矩阵 / ROC / 散点残差）→ 实验历史 → 批量预测 → 清理**」的完整界面流程。
+或直接用浏览器打开 <http://localhost:5173> 拖拽上传，体验「**上传 → EDA → 数据清洗 → 版本化 → 指定版本 EDA / 版本对比 → 机器学习训练（CV 对比 / 混淆矩阵 / ROC / 散点残差）→ 实验历史 → 批量预测 → 模型可解释性（SHAP 全局 / Summary / 单点）→ 清理**」的完整界面流程。
 
 ## v0.5 机器学习 · 44 点逐项总结
 
@@ -634,6 +776,73 @@ curl.exe -X DELETE http://127.0.0.1:8000/api/datasets/<dataset_id>/ml/experiment
 #### 自动化测试（与上述对照）
 - `tests/test_ml.py` 32 用例：覆盖上述 API 契约、特征工程、CV 切分、Pipeline 持久化、预测、版本引用保护等关键路径；与 v0.4 合计 97 个测试全部通过。
 
+## v0.6 模型可解释性（SHAP）· 44 点逐项总结
+
+#### 后端 API（4）
+1. `POST /api/ml/experiments/{exp_id}/explain`：用户指定的简洁路径，跨会话定位 experiment。
+2. `POST /api/datasets/{dataset_id}/ml/experiments/{exp_id}/explain`：与 v0.5 风格一致的 dataset-scoped 同义入口，额外校验归属。
+3. 统一响应结构：`{success, error?}`；错误码含 `invalid_experiment_id / experiment_not_found / experiment_model_missing / experiment_dataset_mismatch / source_version_unavailable / experiment_invalid / empty_dataset / shap_computation_failed / shap_persist_error`。
+4. `ExplainRequest` Pydantic v2 模型：`sample_indices`（≤20）/ `max_summary_rows`（1~1000）/ `regenerate`（bool）。
+
+#### Explainer 路由（5）
+5. `RandomForestClassifier` → `shap.TreeExplainer`。
+6. `RandomForestRegressor` → `shap.TreeExplainer`。
+7. `LogisticRegression` → `shap.LinearExplainer`（interventional）。
+8. `Ridge` → `shap.LinearExplainer`。
+9. `DummyClassifier` / `DummyRegressor` / 其它 → `shap.KernelExplainer`（kmeans 摘要背景）。
+
+#### Pipeline 复用与特征名（6）
+10. 复用 v0.5 已落盘的 `model.joblib`（`Pipeline(preprocessing → model)`），不重新训练 / 不重 fit 预处理。
+11. 通过 `pipeline[:-1]` 切出 preprocessor 子 Pipeline。
+12. 特征名优先用 v0.5 `metadata["feature_names_out"]`，保持 One-Hot 展开后名称（如 `numeric__x1` / `categorical__grp_Alpha`）。
+13. 元信息缺失时回退到 `ColumnTransformer.get_feature_names_out()`，再不行回退为 `feature_i`。
+14. `feature_names / summary.values / summary.shap_values / samples[].contributions[].feature` 全部 post-preprocessing 同维对齐。
+15. `summary.raw_values + summary.raw_feature_names` 同时返回原始数据值，便于人读。
+
+#### 分类 / 回归归一化（4）
+16. 分类任务统一以 `class_labels[1]`（正类）作为 SHAP 基准，与 v0.5 ROC（`pos_label=class_labels[1]`）保持一致。
+17. 二分类与多分类走同一条前端路径（无需为类别数写分支）。
+18. 回归任务 `class_label_used=null` / `prediction.kind=regression` / `prediction.value` 为浮点。
+19. `_select_class_shap` 统一处理 2D / 3D / list-of-2D 三种 SHAP 输出格式。
+
+#### 采样与缓存（6）
+20. 训练阶段保存的 `random_state` 用于 SHAP 行采样，保证可复现。
+21. `max_summary_rows` 由 `ExplainRequest` 决定，默认 `ML_SHAP_SAMPLE_SIZE=200`。
+22. `summary.sample_indices` 记录每行对应源版本的位置。
+23. 重复请求默认命中 `shap_result.json` 缓存（`cached=true`）。
+24. `regenerate=true` 强制重算并覆盖缓存。
+25. `cache` 命中时仍写回最新 `created_at`，保持前端显示稳定。
+
+#### 落盘与级联（5）
+26. 落盘到 `runtime/datasets/<id>/ml/experiments/<exp>/shap_result.json`（D 盘 runtime）。
+27. 落盘原子性：先写 `.tmp` 再 `os.replace`；失败清理临时文件。
+28. `metadata.json#explainability` 同步写回 `status / result_path / explainer_type / model_class / task_type / class_label_used / n_rows_used / warnings / created_at`。
+29. `experiment_manager.delete_experiment` 用 `shutil.rmtree(experiment_dir)` 删除整个目录，**shap_result.json 跟随实验目录被级联删除**。
+30. `find_experiments_using_version` 链路不变；SHAP 不会改变 v0.5 版本引用关系。
+
+#### 跨会话定位与校验（4）
+31. `find_experiment_location(experiment_id)` 扫描 `runtime/datasets/*/ml/experiments/<uuid>/`，返回 `(dataset_id, exp_dir)`。
+32. 只接受合法 UUID 格式的目录名，避免误判临时文件。
+33. dataset-scoped 入口对比 `found_dataset_id == dataset_id`，不一致返回 400 `experiment_dataset_mismatch`。
+34. 找不到 experiment → 404 `experiment_not_found`（同时在缓存命中检查之前）。
+
+#### 错误防护（4）
+35. 模型文件缺失 → 500 `experiment_model_missing`。
+36. 源版本不可用（已被删除或会话过期） → 422 `source_version_unavailable`。
+37. 训练特征在源版本中缺失 → 500 `experiment_invalid`。
+38. SHAP 内部异常 → 500 `shap_computation_failed`（含原始 traceback 给后端日志）。
+
+#### 前端（5）
+39. `ExplainabilityPanel.jsx`：实验下拉 / 生成 / 缓存加载 / 强制重算 / 错误提示 / 配置项（采样行数 + 样本索引）。
+40. `FeatureImportanceChart.jsx`：横向条形图（按 `mean |SHAP|` 降序，分类正类标识）。
+41. `SHAPSummaryChart.jsx`：Beeswarm 散点（x=SHAP，y=feature，颜色按原始值映射）。
+42. `SampleExplanation.jsx`：默认 3 条样本卡片，每条含预测、base_value_delta、top-K 贡献条形图。
+43. 切换实验自动重置 SHAP 状态（避免串数据）。
+44. ECharts 与 `chartTheme` 主题保持一致；样式变量使用现有 `--color-*` / `rgba(125,157,255,*)` 调色板。
+
+#### 自动化测试（与上述对照）
+- `tests/test_explainability.py` 12 用例：覆盖 API 404/400/500、分类/回归 TreeExplainer、KernelExplainer 兜底、JSON schema 完整性、落盘路径、metadata 写回、级联删除、缓存命中、regenerate 行为、ExplainRequest 字段校验、dataset-scoped 校验；与 v0.5 合计 109 个测试全部通过。
+
 ## 数据处理流程（v0.4）
 
 1. 路由层（`api/data.py`）：读取 multipart 文件（分块读取并限制 20MB）→ 只保留文件名
@@ -673,6 +882,10 @@ curl.exe -X DELETE http://127.0.0.1:8000/api/datasets/<dataset_id>/ml/experiment
 | `ML_ROC_MAX_POINTS` | `500` | ROC 曲线最大点数 |
 | `ML_SCATTER_MAX_POINTS` | `500` | 回归散点最大点数 |
 | `ML_ID_LIKE_UNIQUE_RATIO` | `0.95` | 整型列 unique_ratio 阈值，高于此值视为 ID 自动排除 |
+| `ML_SHAP_SAMPLE_SIZE` | `200` | SHAP 解释默认从源版本采样的行数 |
+| `ML_SHAP_BACKGROUND_SIZE` | `50` | KernelExplainer 背景摘要（kmeans 中心数） |
+| `ML_SHAP_TOP_FEATURES` | `30` | 全局特征重要性 topK 保留数量 |
+| `ML_SHAP_TIMEOUT_SECONDS` | `120` | SHAP 计算耗时告警阈值 |
 
 > 提示：代理目标建议使用 `127.0.0.1`，避免 `localhost` 被解析为 IPv6(`::1`) 而后端仅监听 IPv4 导致 502。
 
@@ -685,6 +898,6 @@ curl.exe -X DELETE http://127.0.0.1:8000/api/datasets/<dataset_id>/ml/experiment
 - [x] 数据清洗与特征工程：9 种结构化变换 + 规则校验（v0.4.0）
 - [x] 数据版本管理：UUID 派生版本 / 历史 / 对比 / 删除 / 指定版本 EDA（v0.4.0）
 - [x] 机器学习建模：防泄漏训练管线 / CV 对比 / 实验管理 / 批量预测（v0.5.0）
-- [ ] 模型解释（SHAP / 特征重要性）
+- [x] 模型可解释性：SHAP（Tree/Linear/Kernel 路由）/ 全局 / Summary / 单点（v0.6.0）
 - [ ] LLM 智能分析
 - [ ] Skill / MCP 扩展

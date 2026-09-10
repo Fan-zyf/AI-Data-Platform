@@ -17,8 +17,7 @@ pytest
 httpx
 
 # --- 后续阶段再逐步加入（当前阶段不启用）---
-# scikit-learn
 # xgboost
-# shap
 scikit-learn==1.9.0
 joblib==1.6.0
+shap==0.52.0
