@@ -502,6 +502,21 @@ def delete_derived_version(dataset_id: str, version_id: str) -> bool:
                 status_code=409,
             )
 
+    # v0.5：检查该版本是否被机器学习实验作为数据源引用
+    from app.services import experiment_manager as em
+
+    experiment_refs = em.find_experiments_using_version(dataset_id, ref)
+    if experiment_refs:
+        raise _version_error(
+            "version_in_use_by_ml_experiment",
+            "该版本已被机器学习实验作为数据源引用，不能删除。"
+            "请先删除相关实验（引用实验："
+            + "、".join(experiment_refs[:3])
+            + (f" 等 {len(experiment_refs)} 个" if len(experiment_refs) > 3 else "")
+            + "）后再删除此版本。",
+            status_code=409,
+        )
+
     try:
         shutil.rmtree(version_dir)
     except OSError as exc:  # pragma: no cover

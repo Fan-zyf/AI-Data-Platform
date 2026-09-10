@@ -60,5 +60,31 @@ class Settings:
     eda_high_missing_threshold_percent: float = 20.0  # 高缺失率阈值（%）
     eda_low_cardinality_text_ratio: float = 0.1  # 低基数 text 字段纳入分类分析的唯一值占比上限
 
+    # ---- 机器学习（v0.5：训练 / CV / 评估 / 实验 / 预测）----
+    # 单次训练使用的最大行数（超过则拒绝，防止内存/耗时失控）
+    ml_max_rows: int = int(os.getenv("ML_MAX_ROWS", "100000"))
+    # 训练特征最大个数（自动选择阶段的上限）
+    ml_max_features: int = int(os.getenv("ML_MAX_FEATURES", "500"))
+    # One-Hot 展开后编码维度上限（防止高基数字段导致特征爆炸）
+    ml_max_encoded_features: int = int(os.getenv("ML_MAX_ENCODED_FEATURES", "5000"))
+    # 预测接口单次最大记录数
+    ml_max_prediction_records: int = int(os.getenv("ML_MAX_PREDICTION_RECORDS", "1000"))
+    # 训练所需的最小有效样本数（去掉目标缺失行之后）
+    ml_min_total_rows: int = int(os.getenv("ML_MIN_TOTAL_ROWS", "20"))
+    # 分类任务允许的最大类别数
+    ml_max_unique_classes: int = 50
+    # 低基数文本可当分类特征使用的唯一值个数 / 占比上限
+    ml_low_cardinality_text_unique: int = 50
+    ml_low_cardinality_text_ratio: float = 0.1
+    # 高基数标识符（类 ID 数值列）自动排除的唯一值占比阈值
+    ml_id_like_unique_ratio: float = 0.95
+    # 默认 Task / split / CV 参数
+    ml_default_test_size: float = 0.2
+    ml_default_random_state: int = 42
+    ml_default_cv_folds: int = 5
+    # 结果可视化点数上限（ROC 曲线 / 回归散点压缩用）
+    ml_roc_max_points: int = 200
+    ml_scatter_max_points: int = 500
+
 
 settings = Settings()

@@ -69,14 +69,15 @@ function App() {
     <div className="page">
       <main className="content">
         <header className="hero">
-          <span className="badge">v0.4.0 · Data Processing + Versioning</span>
+          <span className="badge">v0.5.0 · Data Processing + Versioning + ML</span>
           <h1 className="title">AI Data Intelligence Platform</h1>
           <p className="subtitle">智能数据分析与预测平台</p>
           <p className="intro">
             当前已支持 CSV / Excel 数据上传、临时数据集会话（Dataset Session）与自动
             EDA（描述统计、直方图、分类 Top-N、缺失分析、IQR 异常值、Pearson 相关），
-            以及数据清洗与特征工程：Transformation Plan → Preview → Apply → 新数据版本，
-            全程保持原始数据不可变。后续将逐步支持机器学习建模、模型解释与 LLM 分析。
+            数据清洗与特征工程（Transformation Plan → Preview → Apply → 新数据版本），
+            以及 v0.5 机器学习：防泄漏训练管线（train/test split → 训练集内 CV → 候选模型
+            对比 → 测试集最终评估）、实验管理与批量预测。全程保持原始数据不可变。
           </p>
           <SystemStatus />
         </header>

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import EDASection from '../eda/EDASection.jsx'
 import DataProcessingPanel from '../processing/DataProcessingPanel.jsx'
+import MLPanel from '../ml/MLPanel.jsx'
 
 const ACCEPT = '.csv,.xlsx,.xls'
 const ALLOWED_EXT = ['csv', 'xlsx', 'xls']
@@ -294,6 +295,7 @@ function ResultView({ result, onCleared }) {
             initialVersionId="original"
           />
           <DataProcessingPanel datasetId={result.dataset_id} onRunEda={runEdaOnVersion} />
+          <MLPanel datasetId={result.dataset_id} />
         </>
       )}
     </div>
