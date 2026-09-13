@@ -21,3 +21,4 @@ httpx
 scikit-learn==1.9.0
 joblib==1.6.0
 shap==0.52.0
+python-dotenv==1.2.3
