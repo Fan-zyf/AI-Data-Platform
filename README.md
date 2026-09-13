@@ -4,7 +4,7 @@
 
 一个可长期扩展的 AI 数据智能分析平台。
 
-**当前进度（v0.6.0）**
+**当前进度（v0.7.0）**
 - ✅ 基础架构：React + Vite 前端 / FastAPI 后端 / Git
 - ✅ CSV、Excel(.xlsx/.xls) 数据上传与解析（只读分析，不修改原始数据）
 - ✅ 基础数据画像：字段类型推断、缺失统计、唯一值、前 20 行预览、质量警告
@@ -31,7 +31,17 @@
   - 重复请求默认命中缓存，`regenerate=true` 强制重算
   - 实验删除级联清理 SHAP 文件（沿用 v0.5 `shutil.rmtree`）
   - 前端 SHAP 面板：生成 / 缓存 / 强制重算 + 三个 ECharts 图表
-- ⬜ 后续规划：LLM 分析、Skill / MCP 扩展
+- ✅ **AI Data Analyst Agent（v0.7）**：
+  - 5 个 Tool：`dataset` / `eda` / `ml` / `shap` / `report`，对 v0.4~v0.6 服务做轻量包装（不写新数据）
+  - ToolRegistry 关键词路由 + experiment 必备校验 + `agent_max_tools` 上限 + dataset/eda 兜底
+  - LLM 客户端：未配置环境变量时自动用 Mock（从工具结果拼装中文分析报告）；配置 `LLM_API_KEY`/`LLM_BASE_URL`/`LLM_MODEL` 后切换 OpenAI-compatible HTTP 客户端
+  - 真实 LLM 失败自动降级 Mock，不阻塞分析
+  - 统一 Prompt：`<<<TOOL_RESULTS>>>` ... `<<<END_TOOL_RESULTS>>>` 包裹结构化 JSON，Mock 解析与真实 LLM 共享同一模板
+  - API：`POST /api/agent/analyze`，请求 `{question, dataset_id, experiment_id?}`，响应 `{success, answer, insights, recommendations, tools_used, tool_trace, plan, llm, raw_compose, app_version}`；错误码：`dataset_not_found` / `experiment_not_found` / `agent_invalid_request`
+  - 前端 Agent 面板：自然语言提问 + dataset_id / experiment_id 输入 + 快捷问题按钮 + 工具 trace 列表 + 回答 / 洞察 / 建议
+  - 后端测试 25 个 mock + Agent 用例 + 134 个总测试全绿
+  - 浏览器 UI E2E：upload → train → SHAP → 输入问题 → Agent 回答截图
+- ⬜ 后续规划：技能 / MCP 扩展、LLM 多模态、Agent 规划多轮
 
 ## 技术栈
 
@@ -601,7 +611,7 @@ compare 返回（A→B 方向）：`rows/columns/missing/duplicates` 的 A/B 两
   ],
   "warnings": [],
   "created_at": "2026-09-10T02:18:00Z",
-  "app_version": "0.6.0",
+  "app_version": "0.6.0",  /* v0.7 agent 的 app_version = "0.7.0" */
   "cached": false
 }
 ```
@@ -899,5 +909,6 @@ curl.exe -X POST http://127.0.0.1:8000/api/datasets/<dataset_id>/ml/experiments/
 - [x] 数据版本管理：UUID 派生版本 / 历史 / 对比 / 删除 / 指定版本 EDA（v0.4.0）
 - [x] 机器学习建模：防泄漏训练管线 / CV 对比 / 实验管理 / 批量预测（v0.5.0）
 - [x] 模型可解释性：SHAP（Tree/Linear/Kernel 路由）/ 全局 / Summary / 单点（v0.6.0）
-- [ ] LLM 智能分析
+- [x] **AI Data Analyst Agent：5 个 Tool + 关键词路由 + LLM/Mock 自动切换 + 真实 LLM 失败降级（v0.7.0）**
 - [ ] Skill / MCP 扩展
+- [ ] Agent 多轮规划 / 多模态

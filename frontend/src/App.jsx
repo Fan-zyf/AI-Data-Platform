@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import './App.css'
 import UploadPanel from './upload/UploadPanel.jsx'
+import AgentPanel from './agent/AgentPanel.jsx'
 
 const STATUS_META = {
   checking: {
@@ -38,7 +39,7 @@ function SystemStatus() {
         setState(data.status === 'ok' ? 'connected' : 'disconnected')
       })
       .catch(() => {
-        if (!cancelled) setState('disconnected')
+        if (cancelled) setState('disconnected')
       })
 
     return () => {
@@ -65,24 +66,50 @@ function SystemStatus() {
 }
 
 function App() {
+  const [healthOk, setHealthOk] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    const check = () =>
+      fetch('/api/health')
+        .then((res) => res.ok && res.json())
+        .then((data) => {
+          if (cancelled) return
+          setHealthOk(Boolean(data && data.status === 'ok'))
+        })
+        .catch(() => {
+          if (cancelled) return
+          setHealthOk(false)
+        })
+    check()
+    const id = window.setInterval(check, 15000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [])
+
   return (
     <div className="page">
       <main className="content">
         <header className="hero">
-          <span className="badge">v0.5.0 · Data Processing + Versioning + ML</span>
+          <span className="badge">v0.7.0 · AI Data Analyst Agent</span>
           <h1 className="title">AI Data Intelligence Platform</h1>
           <p className="subtitle">智能数据分析与预测平台</p>
           <p className="intro">
-            当前已支持 CSV / Excel 数据上传、临时数据集会话（Dataset Session）与自动
+            当前已支持 CSV / Excel 数据上传、临时数据集会话（Dataset Session）、自动
             EDA（描述统计、直方图、分类 Top-N、缺失分析、IQR 异常值、Pearson 相关），
             数据清洗与特征工程（Transformation Plan → Preview → Apply → 新数据版本），
-            以及 v0.5 机器学习：防泄漏训练管线（train/test split → 训练集内 CV → 候选模型
-            对比 → 测试集最终评估）、实验管理与批量预测。全程保持原始数据不可变。
+            v0.5 机器学习（防泄漏训练管线、CV 候选对比、测试集最终评估、实验管理与批量预测）、
+            v0.6 SHAP 模型可解释性（Tree / Linear / Kernel 路由 + 全局 + Summary + 单点），
+            以及 v0.7 AI Data Analyst Agent（自然语言提问 → 工具调用 → LLM/Mock 汇总报告）。
+            全程保持原始数据不可变。
           </p>
           <SystemStatus />
         </header>
 
         <UploadPanel />
+        <AgentPanel healthOk={healthOk} />
       </main>
     </div>
   )

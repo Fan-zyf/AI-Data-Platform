@@ -96,5 +96,13 @@ class Settings:
     # SHAP 计算超时（秒），超过则强制降级或返回错误
     ml_shap_timeout_seconds: int = int(os.getenv("ML_SHAP_TIMEOUT_SECONDS", "120"))
 
+    # ---- AI Data Analyst Agent（v0.7）----
+    # LLM 调用是否启用 Mock 模式（仅用于监控状态：实际由环境变量决定）
+    agent_force_mock: bool = os.getenv("AGENT_FORCE_MOCK", "1") == "1"
+    # Agent 单次请求最多调用的工具数
+    agent_max_tools: int = int(os.getenv("AGENT_MAX_TOOLS", "4"))
+    # Agent 超时（秒，含工具执行 + LLM 调用）
+    agent_timeout_seconds: int = int(os.getenv("AGENT_TIMEOUT_SECONDS", "90"))
+
 
 settings = Settings()
