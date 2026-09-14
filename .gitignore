@@ -39,3 +39,10 @@ data/*
 data/sample/*
 !data/sample/demo.csv
 !data/sample/ml_demo.csv
+
+# local verification files
+backend/_verify_*.py
+backend/_analyze_*.ps1
+backend/_analyze_*.json
+backend/_a_probe.json
+backend/_uvicorn_*.log*
