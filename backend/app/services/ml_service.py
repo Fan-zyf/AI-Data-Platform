@@ -566,6 +566,16 @@ def _clean_target_rows(
         y = series[keep]
         if pdt.is_string_dtype(y.dtype):
             y = y.astype(object)
+        if pdt.is_bool_dtype(y.dtype):
+            y = y.astype(int)
+        elif y.dtype == object:
+            # 修复 v0.7.x: 含缺失值的 bool 列 dtype 会变成 object（值仍是 bool 真值），
+            # 仍要转 int，否则 sklearn type_of_target 返回 'unknown'。
+            non_null = y.dropna()
+            if len(non_null) > 0 and all(
+                isinstance(v, (bool, np.bool_)) for v in non_null
+            ):
+                y = y.astype(int)
         y = y.reset_index(drop=True)
 
     dropped = int((~keep).sum())
