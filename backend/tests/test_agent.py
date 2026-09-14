@@ -314,7 +314,7 @@ def test_agent_analyze_endpoint_dataset_only(client):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["success"] is True
-    assert body["app_version"] == "0.7.0"
+    assert body["app_version"] == "0.7.2"
     assert body["dataset_id"] == dataset_id
     assert body["experiment_id"] is None
     # answer / insights / recommendations 都应是非空

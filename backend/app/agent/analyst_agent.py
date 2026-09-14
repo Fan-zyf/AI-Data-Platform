@@ -21,9 +21,23 @@ from app.agent.tool_registry import ToolRegistry
 from app.agent.tools.base import ToolContext
 from app.agent.tools.report_tool import ReportTool
 from app.llm import LLMError, get_default_client
-from app.llm.llm_client import MockLLMClient
+from app.llm.llm_client import HTTPLLMClient, MockLLMClient
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_model_name(client: Any) -> str | None:
+    """从 LLM 客户端安全提取已配置模型名（仅真实模式；Mock 模式返回 None）。
+
+    v0.7.2 发布收尾：不打印 / 不暴露 api_key；不参与 real/mock 判定。
+    """
+    if isinstance(client, HTTPLLMClient):
+        cfg = getattr(client, "_config", None)
+        if cfg is not None:
+            model = getattr(cfg, "model", None)
+            if isinstance(model, str) and model.strip():
+                return model.strip()
+    return None
 
 
 class AgentError(Exception):
@@ -124,11 +138,12 @@ def run_analyst(
         "plan": plan.to_payload(),
         "llm": {
             "is_mock": llm_used_mock,
+            "model": _safe_model_name(client),
             "error": llm_error,
         },
         "raw_compose": composed,
         "created_at": created_at,
-        "app_version": "0.7.0",
+        "app_version": "0.7.2",
     }
 
 

@@ -19,7 +19,7 @@ from app.core.config import settings
 app = FastAPI(
     title=settings.app_name,
     description="智能数据分析与预测平台后端服务（AI Data Intelligence Platform）",
-    version="0.7.0",
+    version="0.7.2",
 )
 
 # CORS：允许前端开发服务器跨域访问
@@ -45,7 +45,7 @@ app.include_router(agent_router, prefix="/api")
 def root():
     return {
         "app": settings.app_name,
-        "version": "0.7.0",
+        "version": "0.7.2",
         "health": "/api/health",
         "upload": "/api/data/upload",
         "eda": "/api/datasets/{dataset_id}/eda?version_id=<optional>",
